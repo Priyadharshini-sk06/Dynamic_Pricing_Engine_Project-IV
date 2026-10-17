@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f6f4ec" />
+  <title>Dynamic Pricing Engine</title>
+  <link rel="stylesheet" href="style.css?v=2" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="brand-icon">DP</div>
+      <p class="eyebrow">PRICING INTELLIGENCE PLATFORM</p>
+      <h1>Dynamic Pricing Engine</h1>
+      <p class="subtitle">
+        Make smarter pricing decisions with market, inventory and demand signals.
+      </p>
+      <div class="hero-tag"><span></span> AI-powered price recommendations</div>
+    </header>
+
+    <main class="dashboard">
+      <section class="card form-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">CONFIGURATION</p>
+            <h2>Product details</h2>
+            <p class="section-description">Enter the latest product and market information.</p>
+          </div>
+          <div class="heading-icon">↗</div>
+        </div>
+
+        <form id="pricing-form">
+          <div class="field">
+            <label for="product_category">Product category</label>
+            <select id="product_category" required>
+              <option value="Electronics">Electronics</option>
+              <option value="Apparel">Apparel</option>
+              <option value="Home & Kitchen">Home &amp; Kitchen</option>
+              <option value="Beauty">Beauty</option>
+              <option value="Sports & Outdoors">Sports &amp; Outdoors</option>
+              <option value="Grocery">Grocery</option>
+              <option value="Toys & Games">Toys &amp; Games</option>
+            </select>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="base_price">Base price ($)</label>
+              <input type="number" id="base_price" min="0.01" step="0.01" value="249.99" required />
+            </div>
+            <div class="field">
+              <label for="competitor_price">Competitor price ($)</label>
+              <input type="number" id="competitor_price" min="0.01" step="0.01" value="239.50" required />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="inventory_level">Inventory (units)</label>
+              <input type="number" id="inventory_level" min="0" step="1" value="340" required />
+            </div>
+            <div class="field">
+              <label for="demand_signal">Demand signal</label>
+              <input type="number" id="demand_signal" min="0" step="1" value="145" required />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="day_of_week">Day of week</label>
+              <select id="day_of_week" required>
+                <option>Monday</option>
+                <option>Tuesday</option>
+                <option>Wednesday</option>
+                <option>Thursday</option>
+                <option selected>Friday</option>
+                <option>Saturday</option>
+                <option>Sunday</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="customer_segment">Customer segment</label>
+              <select id="customer_segment" required>
+                <option>Budget</option>
+                <option selected>Regular</option>
+                <option>Premium</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="checkbox-field" for="is_holiday">
+            <input type="checkbox" id="is_holiday" />
+            <span>
+              <strong>Holiday period</strong>
+              <small>Near a major shopping holiday</small>
+            </span>
+          </label>
+
+          <button type="submit" id="submit-btn">
+            <span>Calculate recommended price</span>
+            <span class="button-arrow">→</span>
+          </button>
+          <p class="form-note">Your inputs are processed by the pricing API.</p>
+        </form>
+      </section>
+
+      <aside class="side-column">
+        <section class="insight-card">
+          <div class="insight-icon">✳</div>
+          <p class="section-kicker">SMART PRICING</p>
+          <h2>Find the right price.</h2>
+          <p>Balance competitor pricing, stock availability and customer demand to support better pricing decisions.</p>
+          <div class="insight-divider"></div>
+          <div class="insight-point"><span>01</span> Market comparison</div>
+          <div class="insight-point"><span>02</span> Inventory signals</div>
+          <div class="insight-point"><span>03</span> Demand adjustment</div>
+        </section>
+
+        <section id="result" class="result card" hidden>
+          <div class="result-heading">
+            <div>
+              <p class="section-kicker">MODEL OUTPUT</p>
+              <h2>Price recommendation</h2>
+            </div>
+            <span class="result-badge">READY</span>
+          </div>
+
+          <div class="result-main">
+            <span class="result-label">Recommended selling price</span>
+            <span id="recommended-price" class="result-price">$0.00</span>
+            <span class="result-caption">Suggested price from the pricing engine</span>
+          </div>
+
+          <div class="breakdown-heading">PRICE BREAKDOWN</div>
+          <div class="result-details">
+            <div class="detail-row">
+              <span>Raw model prediction</span>
+              <strong id="raw-prediction">$0.00</strong>
+            </div>
+            <div class="detail-row">
+              <span>Competitor-blended price</span>
+              <strong id="blended-price">$0.00</strong>
+            </div>
+            <div class="detail-row">
+              <span>Inventory adjustment</span>
+              <strong id="inventory-adj">0%</strong>
+            </div>
+            <div class="detail-row">
+              <span>Demand adjustment</span>
+              <strong id="demand-adj">0%</strong>
+            </div>
+          </div>
+        </section>
+
+        <div id="error-box" class="error-box" hidden role="alert"></div>
+      </aside>
+    </main>
+
+    <footer>
+      <span class="footer-mark">DP</span>
+      <p>Dynamic Pricing Engine <span class="footer-separator">·</span> Powered by FastAPI</p>
+      <p class="footer-api">API endpoint: <code>POST /predict-price</code></p>
+    </footer>
+  </div>
+
+  <script src="script.js?v=2"></script>
+</body>
+</html>
+
+

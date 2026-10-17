@@ -1,0 +1,15 @@
+# Core data / ML
+numpy==2.3.5
+pandas==2.3.3
+scikit-learn==1.8.0
+xgboost==3.2.0
+optuna==5.0.0
+joblib==1.5.3
+
+# Plotting (EDA)
+matplotlib==3.10.8
+
+# Backend API
+fastapi==0.141.0
+uvicorn==0.22.0
+pydantic==2.13.4

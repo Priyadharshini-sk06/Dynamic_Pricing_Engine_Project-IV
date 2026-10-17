@@ -1,0 +1,25 @@
+{
+  "random_forest_baseline": {
+    "MAE": 37.792,
+    "RMSE": 86.165,
+    "R2": 0.8514,
+    "MAPE_%": 28.65
+  },
+  "xgboost_tuned": {
+    "MAE": 37.75,
+    "RMSE": 85.097,
+    "R2": 0.8551,
+    "MAPE_%": 29.64
+  },
+  "best_xgb_params": {
+    "n_estimators": 273,
+    "max_depth": 7,
+    "learning_rate": 0.02654230398373742,
+    "subsample": 0.9248652341102346,
+    "colsample_bytree": 0.6822718134232446,
+    "min_child_weight": 10,
+    "reg_alpha": 2.4382186510253154,
+    "reg_lambda": 0.12476138407492403
+  },
+  "note": "Note: MAE/RMSE are in raw currency units, and this dataset spans categories from ~$5 (Grocery) to ~$800+ (Electronics) base prices, so absolute error is naturally larger than a single-category dataset would produce -- MAPE and R^2 are the more meaningful cross-category metrics here. R^2 in the ~75-85% range is the explicit target for this project (see README), not a maximum achievable ceiling to push past."
+}
