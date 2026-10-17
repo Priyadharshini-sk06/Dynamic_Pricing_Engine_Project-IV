@@ -1,267 +1,387 @@
-# Dynamic Pricing Engine for E-commerce
+# Dynamic Pricing Engine
 
-Video Link: https://drive.google.com/file/d/169ZJS_M7L53FvEBJQE5cz2ZS4Xa8V3B2/view?usp=sharing
-An end-to-end ML project that recommends a product price from live market,
-inventory, and demand signals — synthetic data → EDA → model training
-(Random Forest baseline + tuned XGBoost) → business-rule adjustments →
-FastAPI backend → minimal HTML/CSS/JS frontend.
+An end-to-end machine learning project that predicts product prices using pricing-related features and applies pricing logic to support data-driven pricing decisions.
 
----
+The project combines machine learning, feature engineering, a FastAPI backend, and a web-based interface to demonstrate how predictive models can be integrated into a dynamic pricing application.
 
-## 1. Problem Statement
+## Table of Contents
 
-E-commerce sellers need to price products competitively while reacting to:
-- **Competitor pricing** (don't get undercut, don't leave money on the table)
-- **Inventory pressure** (clear overstock, protect scarce stock)
-- **Demand signals** (recent clicks/orders suggest willingness to pay)
-- **Seasonality** (day-of-week and holiday effects)
-- **Customer segment** (premium vs. budget shoppers)
+- [Overview](#-overview)
+- [Problem Statement](#-problem-statement)
+- [Key Features](#-key-features)
+- [Technology Stack](#-technology-stack)
+- [System Architecture](#-system-architecture)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+- [Machine Learning Workflow](#-machine-learning-workflow)
+- [Model Evaluation](#-model-evaluation)
+- [Demo](#-demo)
+- [Challenges and Learnings](#-challenges-and-learnings)
+- [Future Improvements](#-future-improvements)
 
-This project builds a model that learns a good "optimal price" from these
-signals, then layers simple, auditable business rules (competitor blending,
-inventory/demand adjustments) on top of the model's raw prediction before
-surfacing a final recommendation via an API and a small web UI.
+## Overview
 
-## 2. Approach
+The Dynamic Pricing Engine explores how machine learning can support pricing decisions by learning patterns from historical pricing data.
 
-**No real dataset was provided**, so a synthetic but realistically-structured
-dataset was generated (documented in detail in
-[src/data_generation.py](src/data_generation.py)). In short:
+The application includes a dataset, data exploration scripts, feature engineering utilities, trained machine learning models, pricing logic, a FastAPI application, and a browser-based frontend.
 
-1. A catalog of 220 SKUs across 7 categories is created, each with a
-   `base_price`, an internal `cost`, and a `price_elasticity` coefficient.
-2. ~26,000 dated observations are simulated across those SKUs with varying
-   competitor prices, inventory levels, demand signals, day-of-week,
-   holiday flags, and customer segments.
-3. The **target** `optimal_price` is derived from the classic
-   constant-elasticity monopoly markup rule
-   (`price* = cost * elasticity / (elasticity - 1)`), then adjusted with
-   explainable multipliers for competitor price, inventory, demand,
-   seasonality/holidays, and customer segment, plus a sizeable noise term
-   representing everything a model *can't* observe (see "Model Performance"
-   below for why this matters).
+The repository contains both a Random Forest baseline model and an XGBoost pricing model, allowing the project to support model comparison and experimentation.
 
-From there:
-- **EDA** ([scripts/eda.py](scripts/eda.py)) checks price distributions, demand vs.
-  price, and seasonal/competitor relationships (plots in `outputs/`).
-- **Feature engineering** ([src/features.py](src/features.py)) encodes
-  categoricals and derives elasticity-proxy features (competitor price
-  ratio/gap, demand-per-price, inventory-pressure flags, weekend flag).
-- **Modeling** ([scripts/train_model.py](scripts/train_model.py)) trains a
-  RandomForest baseline and a hyperparameter-tuned (Optuna) XGBoost model,
-  evaluated with MAE / RMSE / R² / MAPE on a held-out test set.
-- **Business rules** ([src/pricing_logic.py](src/pricing_logic.py)) blend
-  the model's raw prediction with the competitor price (configurable ratio,
-  default 70% model / 30% competitor) and apply inventory- and
-  demand-based percentage adjustments on top.
-- **Serving** ([app/main.py](app/main.py)) exposes this as a FastAPI
-  service, and [frontend/](frontend/) is a plain HTML/CSS/JS page that
-  calls it.
+## Problem Statement
 
-### A deliberate deviation from the literal spec worth flagging
+Setting appropriate product prices can be challenging because pricing decisions may depend on several factors, including current prices, competitor prices, demand, inventory, product categories, and seasonal patterns.
 
-The spec's `/predict-price` field list didn't include the product's own
-`base_price`. In practice you can't recommend a *currency-scale* price
-without knowing the product's price tier, so `base_price` was added as a
-required request field — it's used both by the model and by the business
-rules. This felt like the more realistic and defensible design; happy to
-change it if you'd rather anchor purely on `competitor_price` instead.
+A data-driven pricing system can learn relationships from historical data and provide predictions that help inform pricing decisions.
 
-## 3. Model Performance
+This project demonstrates a machine learning workflow for predicting prices and applying additional pricing logic through an application interface.
 
-| Model                    | MAE    | RMSE   | R²     | MAPE   |
-|--------------------------|-------:|-------:|-------:|-------:|
-| Random Forest (baseline) | 37.79  | 86.17  | 0.8514 | 28.65% |
-| XGBoost (Optuna-tuned)   | 37.75  | 85.10  | 0.8551 | 29.64% |
+## Key Features
 
-*(From the actual training run behind this README; re-running
-`scripts/train_model.py` reproduces these numbers thanks to fixed random
-seeds. Exact numbers are also written to `models/metrics.json`.)*
+- **Machine Learning-Based Price Prediction:** Includes trained Random Forest and XGBoost models.
+- **Feature Engineering:** Uses reusable utilities to prepare input features for prediction.
+- **Pricing Logic:** Separates prediction functionality from additional pricing calculations.
+- **REST API:** Uses FastAPI to expose backend functionality.
+- **Web Interface:** Provides an HTML, CSS, and JavaScript frontend.
+- **Exploratory Data Analysis:** Includes scripts and plots for examining pricing-related patterns.
+- **Model Evaluation:** Stores model evaluation information in `models/metrics.json`.
+- **Saved Model Artifacts:** Includes trained models and feature-column metadata.
 
-**Why R² ≈ 75-85% (not higher) and why that's the right target, not a
-shortfall:** the model is only given features an API caller could
-realistically supply — category, base price, competitor price, inventory
-level, demand signal, day-of-week, holiday flag, customer segment. It never
-sees the internal `cost` or exact per-SKU `price_elasticity` used to build
-the training labels, nor the exact calendar date (only day-of-week/holiday
-are exposed), and a meaningful noise term stands in for everything else a
-real pricing model can't observe (one-off promotions, individual browsing
-behavior, competitor stockouts, etc.). This intentionally keeps the model
-honest and in the realistic ~75-85% R² band requested for this project,
-rather than overfitting to a trivially-recoverable synthetic label.
+The exact input fields and pricing adjustments should be documented according to the implementation in `src/features.py`, `src/pricing_logic.py`, and `app/main.py`.
 
-**On the MAE < 8 guideline:** this dataset spans categories from ~$5
-(Grocery) to ~$800+ (Electronics) base prices, so a single global
-regressor's *absolute* error is naturally larger than 8 currency units —
-MAPE (~20%) and R² are the more meaningful cross-category metrics here.
-Per the spec's own note, the 75-85% R²/accuracy-equivalent range was
-treated as the primary target instead of chasing a low absolute MAE by,
-e.g., training separate per-category models (which would add complexity
-without changing the underlying takeaways).
+## Technology Stack
 
-## 4. Project Structure
+| Component | Technologies |
+|---|---|
+| Programming Language | Python, JavaScript |
+| Data Processing | NumPy, Pandas |
+| Machine Learning | Scikit-learn, XGBoost |
+| Hyperparameter Optimization | Optuna |
+| Model Persistence | Joblib |
+| Backend API | FastAPI, Uvicorn, Pydantic |
+| Frontend | HTML5, CSS3, JavaScript |
+| Data Visualization | Matplotlib |
+| Development Tools | VS Code, Git, GitHub |
 
-```
-dynamic-pricing-engine/
-├── data/                      # generated dataset (pricing_data.csv)
-├── outputs/                   # EDA plots (PNG)
-├── scripts/
-│   ├── eda.py                 # exploratory analysis + plots (entry point)
-│   └── train_model.py         # RF baseline + Optuna-tuned XGBoost + eval (entry point)
-├── src/
-│   ├── data_generation.py     # synthetic dataset + target simulation logic
-│   ├── features.py            # shared feature engineering (train + serve)
-│   ├── pricing_logic.py       # competitor blend + inventory/demand rules
-│   └── predict.py             # inference helper used by the API
-├── app/
-│   └── main.py                # FastAPI backend
-├── frontend/
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
-├── models/                    # saved model artifacts (created by training)
-├── requirements.txt
-└── README.md
+## System Architecture
+
+The project separates data processing, model training, prediction logic, the API, and the user interface.
+
+```mermaid
+flowchart TD
+    A[Historical Pricing Data] --> B[Data Exploration]
+    B --> C[Feature Engineering]
+    C --> D[Model Training]
+    D --> E[Random Forest Baseline]
+    D --> F[XGBoost Pricing Model]
+    E --> G[Model Evaluation]
+    F --> G
+    H[User] --> I[Web Interface]
+    I --> J[FastAPI Backend]
+    J --> K[Feature Preparation]
+    K --> L[Trained Model Prediction]
+    L --> M[Pricing Logic]
+    M --> N[Pricing Result]
+    N --> J
+    J --> I
 ```
 
-## 5. How to Run Locally
+*This diagram illustrates the intended high-level workflow. Confirm the precise request and response flow against the current backend implementation.*
 
-### Setup
-```bash
-cd dynamic-pricing-engine
-pip install -r requirements.txt
-```
+## API Endpoints
 
-### Step 1 — Generate the dataset
-```bash
-python src/data_generation.py
-```
-Writes `data/pricing_data.csv` (~26,000 rows, 220 SKUs).
+The FastAPI backend exposes the following endpoints.
 
-### Step 2 — (Optional) Run EDA
-```bash
-python scripts/eda.py
-```
-Writes 3 plots to `outputs/`.
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Returns API health and model-loading status. |
+| POST | `/predict-price` | Generates a recommended price from the supplied product and market inputs. |
 
-### Step 3 — Train the models
-```bash
-python scripts/train_model.py
-```
-Trains the RandomForest baseline and Optuna-tuned XGBoost model, prints
-comparison metrics, and saves artifacts to `models/`:
-- `xgb_pricing_model.joblib` — final model served by the API
-- `rf_baseline_model.joblib` — baseline, for comparison
-- `feature_columns.json` — exact column layout the model expects
-- `metrics.json` — evaluation summary
+### Prediction Inputs
 
-### Step 4 — Run the backend API
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-The API loads the trained model once at startup. Visit
-`http://127.0.0.1:8000/docs` for interactive Swagger docs.
+The `/predict-price` endpoint accepts a JSON request containing:
 
-### Step 5 — Open the frontend
-The FastAPI app also serves the frontend directly, so with the server
-running you can just open:
-```
-http://127.0.0.1:8000/
-```
-Or, to run the frontend fully standalone (e.g. a different port):
-```bash
-cd frontend
-python -m http.server 5500
-```
-then open `http://127.0.0.1:5500`. `script.js` auto-detects this case and
-points requests at `http://127.0.0.1:8000` instead of a relative path.
+- `product_category`
+- `base_price`
+- `competitor_price`
+- `inventory_level`
+- `demand_signal`
+- `day_of_week`
+- `is_holiday`
+- `customer_segment`
 
-## 6. API Usage Examples
+The API validates category, weekday, and customer-segment values, along with numeric constraints on price, inventory, and demand.
 
-**Health check**
-```bash
-curl http://127.0.0.1:8000/health
-```
-```json
-{"status": "ok", "model_loaded": true}
-```
+### Example Request
 
-**Predict price**
-```bash
-curl -X POST http://127.0.0.1:8000/predict-price \
-  -H "Content-Type: application/json" \
-  -d '{
-        "product_category": "Electronics",
-        "base_price": 249.99,
-        "competitor_price": 239.50,
-        "inventory_level": 340,
-        "demand_signal": 145,
-        "day_of_week": "Friday",
-        "is_holiday": false,
-        "customer_segment": "Regular"
-      }'
-```
 ```json
 {
-  "recommended_price": 231.87,
-  "raw_model_prediction": 245.10,
-  "adjustments": {
-    "raw_model_prediction": 245.10,
-    "competitor_blended_price": 243.42,
-    "inventory_adjustment_pct": 0.0,
-    "demand_adjustment_pct": 1.13
-  }
+  "product_category": "Electronics",
+  "base_price": 249.99,
+  "competitor_price": 239.50,
+  "inventory_level": 340,
+  "demand_signal": 145,
+  "day_of_week": "Friday",
+  "is_holiday": false,
+  "customer_segment": "Regular"
 }
 ```
-*(Actual numbers will vary slightly depending on your trained model run.)*
 
-**Low-inventory example** (should trigger a scarcity markup):
-```bash
-curl -X POST http://127.0.0.1:8000/predict-price \
-  -H "Content-Type: application/json" \
-  -d '{
-        "product_category": "Grocery",
-        "base_price": 12.50,
-        "competitor_price": 13.20,
-        "inventory_level": 15,
-        "demand_signal": 210,
-        "day_of_week": "Saturday",
-        "is_holiday": true,
-        "customer_segment": "Budget"
-      }'
+### Prediction Response
+
+The API returns a recommended price, the raw model prediction, and an adjustment breakdown containing the competitor-blended price, inventory adjustment percentage, and demand adjustment percentage.
+
+Use the interactive API documentation at `/docs` to test requests against the running application.
+
+## Project Structure
+
+```text
+Project2_Dynamic_Pricing_Engine/
+│
+├── app/
+│   ├── __init__.py
+│   └── main.py
+│
+├── data/
+│   └── pricing_data.csv
+│
+├── frontend/
+│   ├── index.html
+│   ├── script.js
+│   └── style.css
+│
+├── models/
+│   ├── feature_columns.json
+│   ├── metrics.json
+│   ├── rf_baseline_model.joblib
+│   └── xgb_pricing_model.joblib
+│
+├── outputs/
+│   ├── demand_vs_price.png
+│   ├── price_distribution.png
+│   └── seasonality_competitor.png
+│
+├── scripts/
+│   ├── eda.py
+│   └── train_model.py
+│
+├── src/
+│   ├── data_generation.py
+│   ├── features.py
+│   ├── predict.py
+│   └── pricing_logic.py
+│
+├── requirements.txt
+├── README.md
+└── Dynamic_Pricing_Web.mp4
 ```
 
-## 7. What a Real Deployment Would Add
+### Important Files
 
-This project intentionally stays local/simple. A production version would
-likely add:
+- `app/main.py` — Main FastAPI application.
+- `data/pricing_data.csv` — Pricing dataset.
+- `scripts/eda.py` — Exploratory data analysis.
+- `scripts/train_model.py` — Model training workflow.
+- `src/data_generation.py` — Data generation utilities.
+- `src/features.py` — Feature preparation and engineering.
+- `src/predict.py` — Prediction-related functionality.
+- `src/pricing_logic.py` — Pricing calculation logic.
+- `models/rf_baseline_model.joblib` — Saved Random Forest baseline model.
+- `models/xgb_pricing_model.joblib` — Saved XGBoost model.
+- `models/feature_columns.json` — Feature-column metadata.
+- `models/metrics.json` — Stored evaluation information.
+- `frontend/` — Web application interface.
+- `outputs/` — Generated analysis visualizations.
 
-- **AWS S3** — versioned storage for training data and model artifacts.
-- **AWS Lambda / SageMaker** — serverless or managed inference instead of a
-  single long-running `uvicorn` process; SageMaker or a container on ECS/EKS
-  for scheduled retraining.
-- **AWS EC2 / ECS Fargate** — hosting the FastAPI service behind a load
-  balancer with autoscaling, rather than a single local process.
-- **Kafka (or Kinesis)** — a streaming pipeline for real-time demand/click
-  signals and competitor price feeds, instead of the static CSV used here.
-- **A feature store** — to guarantee the exact train/serve feature
-  consistency this project currently handles manually via
-  `src/features.py`.
-- **Model monitoring / drift detection** — to catch when real-world pricing
-  dynamics diverge from what the model was trained on, and trigger
-  retraining.
-- **A/B testing / guardrails** — to validate that model-recommended prices
-  actually improve revenue/margin before fully automating pricing
-  decisions, plus hard min/max price guardrails per SKU.
+## Getting Started
 
-## 8. Notes on Reproducibility
+### Prerequisites
 
-- `RNG_SEED = 42` in `src/data_generation.py` makes the dataset
-  deterministic. Re-running `data_generation.py` regenerates the exact
-  same dataset.
-- `RANDOM_STATE = 42` in `scripts/train_model.py` similarly fixes the
-  train/val/test splits and model random states.
-- **Windows/Python 3.14 note:** this project was built against Python
-  3.14. If you hit a native-extension crash from `pandas`, make sure
-  you're on `pandas>=2.3.3` (earlier 2.2.x wheels are not built against
-  Python 3.14 and can segfault on datetime operations).
+- Python installed on your system.
+- Git installed on your system.
+- Visual Studio Code or another code editor.
+- A terminal for running Python commands.
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Priyadharshini-sk06/Dynamic_Pricing_Engine_Project-IV.git
+cd Dynamic_Pricing_Engine_Project-IV
+```
+
+### 2. Create a Virtual Environment
+
+**Windows PowerShell:**
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+If the virtual environment already exists, activate it instead of creating it again.
+
+### 3. Install Dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 4. Start the Backend
+
+From the project root, run:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+This assumes `app/main.py` exposes a FastAPI instance named `app`. If the instance has a different name or the application uses a different startup configuration, update this command accordingly.
+
+### 5. Open the Application
+
+With the standard Uvicorn configuration, the API runs at:
+
+`http://127.0.0.1:8000`
+
+FastAPI's interactive documentation is generally available at:
+
+`http://127.0.0.1:8000/docs`
+
+The frontend may be served separately or mounted by the backend. Follow the route and static-file configuration in `app/main.py` to open the correct dashboard URL.
+
+## Machine Learning Workflow
+
+The project contains several components supporting the machine learning pipeline.
+
+### 1. Data Exploration
+
+The dataset can be examined to understand pricing distributions and relationships among pricing-related variables.
+
+The `scripts/eda.py` script and the generated visualizations support exploratory analysis.
+
+### 2. Feature Engineering
+
+The `src/features.py` module contains feature preparation utilities. Consistent feature preparation is important because prediction inputs must match the features expected by the trained model.
+
+### 3. Model Training
+
+The repository contains a Random Forest baseline and an XGBoost model.
+
+The training script is located at `scripts/train_model.py`. Its implementation determines the training configuration, data split, tuning strategy, and model-saving procedure.
+
+### 4. Price Prediction
+
+The `src/predict.py` module supports prediction functionality using the project's saved model artifacts.
+
+### 5. Pricing Logic
+
+The `src/pricing_logic.py` module separates pricing calculations from the underlying machine learning prediction.
+
+This separation makes it easier to maintain and test model inference and business rules independently.
+
+## Model Evaluation
+
+The project compares two regression models for product price prediction: a Random Forest baseline and a tuned XGBoost model.
+
+### Model Performance
+
+| Metric | Random Forest Baseline | Tuned XGBoost |
+|---|---:|---:|
+| MAE | 37.792 | 37.750 |
+| RMSE | 86.165 | 85.097 |
+| R² Score | 0.8514 | 0.8551 |
+| MAPE | 28.65% | 29.64% |
+
+*Source: `models/metrics.json`. MAE and RMSE are expressed in the dataset's raw currency units.*
+
+### Results and Interpretation
+
+- **MAE:** XGBoost achieves a slightly lower mean absolute error of 37.750 compared with 37.792 for Random Forest.
+- **RMSE:** XGBoost achieves a lower RMSE of 85.097 compared with 86.165, indicating a modest improvement under this metric.
+- **R² Score:** XGBoost achieves an R² of 0.8551, compared with 0.8514 for Random Forest.
+- **MAPE:** Random Forest performs better on percentage error, with 28.65% compared with 29.64% for XGBoost.
+
+Overall, tuned XGBoost performs slightly better on MAE, RMSE, and R², while Random Forest achieves the lower MAPE. The best model therefore depends on the evaluation metric and the business objective.
+
+### XGBoost Hyperparameter Tuning
+
+The project stores the selected XGBoost configuration in `models/metrics.json`. The recorded parameters include:
+
+- `n_estimators`: 273
+- `max_depth`: 7
+- `learning_rate`: approximately 0.02654
+- `subsample`: approximately 0.92487
+- `colsample_bytree`: approximately 0.68227
+- `min_child_weight`: 10
+- `reg_alpha`: approximately 2.43822
+- `reg_lambda`: approximately 0.12476
+
+The project includes Optuna as a dependency for hyperparameter optimization.
+
+**Note:** These metrics describe the project's recorded evaluation results. They should not be interpreted as a guarantee of performance on unseen production data.
+
+## Exploratory Data Analysis
+
+The `outputs/` directory contains visualizations related to pricing data:
+
+- `demand_vs_price.png` — Demand and price relationships.
+- `price_distribution.png` — Price distribution.
+- `seasonality_competitor.png` — Seasonal and competitor-related patterns.
+
+These plots can help communicate the patterns explored during development.
+
+## Demo
+
+Watch the application demonstration:
+
+[▶️ Dynamic Pricing Engine Demo](./Dynamic_Pricing_Web.mp4)
+
+The demonstration video is included in the repository.
+
+## Challenges and Learnings
+
+This project provides practical experience with:
+
+- Preparing data for machine learning.
+- Engineering features for price prediction.
+- Training and saving regression models.
+- Comparing a baseline model with an XGBoost model.
+- Integrating prediction logic with a FastAPI backend.
+- Separating model inference from pricing calculations.
+- Building a frontend for interacting with a machine learning application.
+- Evaluating model performance and interpreting exploratory visualizations.
+- Organizing a machine learning project into reusable modules.
+
+### Design Decisions
+
+- **Random Forest baseline:** Provides a reference model for experimentation.
+- **XGBoost:** Provides an additional gradient-boosting model for pricing prediction.
+- **Separate feature and prediction modules:** Improve code organization and maintainability.
+- **FastAPI:** Provides a structured way to expose backend functionality.
+- **Independent frontend:** Separates user interaction from the backend implementation.
+- **Stored model artifacts:** Allow the application to load trained models without requiring retraining for every prediction.
+
+## Future Improvements
+
+Potential improvements include:
+
+- Comparing models using consistent evaluation datasets.
+- Adding automated tests for feature engineering and pricing logic.
+- Improving input validation and error handling.
+- Supporting additional pricing signals where suitable data is available.
+- Adding prediction history and downloadable reports.
+- Deploying the application to a cloud platform.
+- Monitoring prediction performance as new data becomes available.
+
+These are proposed improvements, not claims about features already implemented.
+
+## Author
+
+**Priyadharshini S K**
+
+B.Tech — Information Technology
+
+[GitHub Profile](https://github.com/Priyadharshini-sk06)
+
+## License
+
+No license has been specified in this repository yet. Add an appropriate license file if you intend to distribute the project for reuse.
+
